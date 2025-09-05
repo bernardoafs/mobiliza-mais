@@ -9,8 +9,8 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
-import Materials from "./pages/Materials";
 import AdminInterests from "./pages/AdminInterests";
+import AdminMaterials from "./pages/AdminMaterials";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -45,18 +45,18 @@ const App = () => {
                 } 
               />
               <Route 
-                path="/materials" 
-                element={
-                  <ProtectedRoute>
-                    <Materials />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
                 path="/admin/interests" 
                 element={
                   <ProtectedRoute>
                     <AdminInterests />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/admin/materials" 
+                element={
+                  <ProtectedRoute>
+                    <AdminMaterials />
                   </ProtectedRoute>
                 } 
               />

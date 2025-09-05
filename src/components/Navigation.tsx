@@ -23,24 +23,26 @@ const Navigation = () => {
           Dashboard
         </Button>
         
-        <Button
-          variant={isActive('/materials') ? 'default' : 'outline'}
-          onClick={() => navigate('/materials')}
-          className="flex items-center gap-2"
-        >
-          <FileText className="h-4 w-4" />
-          Materiais
-        </Button>
-        
         {isAdmin && (
-          <Button
-            variant={isActive('/admin/interests') ? 'default' : 'outline'}
-            onClick={() => navigate('/admin/interests')}
-            className="flex items-center gap-2"
-          >
-            <Settings className="h-4 w-4" />
-            Administração
-          </Button>
+          <>
+            <Button
+              variant={isActive('/admin/interests') ? 'default' : 'outline'}
+              onClick={() => navigate('/admin/interests')}
+              className="flex items-center gap-2"
+            >
+              <Settings className="h-4 w-4" />
+              Interesses
+            </Button>
+            
+            <Button
+              variant={isActive('/admin/materials') ? 'default' : 'outline'}
+              onClick={() => navigate('/admin/materials')}
+              className="flex items-center gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              Materiais
+            </Button>
+          </>
         )}
       </div>
     </Card>
