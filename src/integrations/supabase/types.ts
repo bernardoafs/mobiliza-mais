@@ -14,6 +14,98 @@ export type Database = {
   }
   public: {
     Tables: {
+      campaign_interests: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          id: string
+          interest_id: string
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          id?: string
+          interest_id: string
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          id?: string
+          interest_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_interests_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_interests_interest_id_fkey"
+            columns: ["interest_id"]
+            isOneToOne: false
+            referencedRelation: "personal_interests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_posts: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          id: string
+          post_type: string
+          post_url: string
+          updated_at: string
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          id?: string
+          post_type: string
+          post_url: string
+          updated_at?: string
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          id?: string
+          post_type?: string
+          post_url?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_posts_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaigns: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       personal_interests: {
         Row: {
           created_at: string
@@ -123,7 +215,7 @@ export type Database = {
       }
       whatsapp_links: {
         Row: {
-          campaign_name: string
+          campaign_id: string | null
           created_at: string
           id: string
           updated_at: string
@@ -131,7 +223,7 @@ export type Database = {
           whatsapp_link: string
         }
         Insert: {
-          campaign_name: string
+          campaign_id?: string | null
           created_at?: string
           id?: string
           updated_at?: string
@@ -139,14 +231,22 @@ export type Database = {
           whatsapp_link: string
         }
         Update: {
-          campaign_name?: string
+          campaign_id?: string | null
           created_at?: string
           id?: string
           updated_at?: string
           user_id?: string
           whatsapp_link?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_links_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

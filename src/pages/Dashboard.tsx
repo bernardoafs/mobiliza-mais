@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { LogOut, User, CheckCircle, Clock, Target, Copy, Plus, Trash2, ExternalLink } from 'lucide-react';
@@ -24,11 +24,19 @@ interface UserInterest {
   };
 }
 
+interface Campaign {
+  id: string;
+  name: string;
+}
+
 interface WhatsAppLink {
   id: string;
-  campaign_name: string;
+  campaign_id: string | null;
   whatsapp_link: string;
   created_at: string;
+  campaigns?: {
+    name: string;
+  };
 }
 
 const Dashboard = () => {
@@ -38,8 +46,9 @@ const Dashboard = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userInterests, setUserInterests] = useState<UserInterest[]>([]);
   const [whatsappLinks, setWhatsappLinks] = useState<WhatsAppLink[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newCampaignName, setNewCampaignName] = useState('');
+  const [selectedCampaignId, setSelectedCampaignId] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -80,10 +89,30 @@ const Dashboard = () => {
         setUserInterests(interestsData || []);
       }
 
+      // Fetch campaigns
+      const { data: campaignsData, error: campaignsError } = await supabase
+        .from('campaigns')
+        .select('id, name')
+        .order('name', { ascending: true });
+
+      if (campaignsError) {
+        console.error('Error fetching campaigns:', campaignsError);
+      } else {
+        setCampaigns(campaignsData || []);
+      }
+
       // Fetch WhatsApp links
       const { data: linksData, error: linksError } = await supabase
         .from('whatsapp_links')
-        .select('id, campaign_name, whatsapp_link, created_at')
+        .select(`
+          id, 
+          campaign_id, 
+          whatsapp_link, 
+          created_at,
+          campaigns (
+            name
+          )
+        `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -110,19 +139,30 @@ const Dashboard = () => {
   };
 
   const createWhatsAppLink = async () => {
-    if (!newCampaignName.trim() || !user || !profile) return;
+    if (!selectedCampaignId || !user || !profile) return;
 
-    const whatsappLink = generateWhatsAppLink(newCampaignName);
+    const selectedCampaign = campaigns.find(c => c.id === selectedCampaignId);
+    if (!selectedCampaign) return;
+
+    const whatsappLink = generateWhatsAppLink(selectedCampaign.name);
     
     try {
       const { data, error } = await supabase
         .from('whatsapp_links')
         .insert({
           user_id: user.id,
-          campaign_name: newCampaignName,
+          campaign_id: selectedCampaignId,
           whatsapp_link: whatsappLink
         })
-        .select()
+        .select(`
+          id, 
+          campaign_id, 
+          whatsapp_link, 
+          created_at,
+          campaigns (
+            name
+          )
+        `)
         .single();
 
       if (error) {
@@ -136,7 +176,7 @@ const Dashboard = () => {
       }
 
       setWhatsappLinks(prev => [data, ...prev]);
-      setNewCampaignName('');
+      setSelectedCampaignId('');
       toast({
         title: 'Link criado',
         description: 'Link do WhatsApp criado com sucesso!',
@@ -389,18 +429,24 @@ const Dashboard = () => {
               <div className="space-y-4">
                 <div className="flex gap-2">
                   <div className="flex-1">
-                    <Label htmlFor="campaign">Nome da Campanha</Label>
-                    <Input
-                      id="campaign"
-                      placeholder="Ex: Eleições 2026"
-                      value={newCampaignName}
-                      onChange={(e) => setNewCampaignName(e.target.value)}
-                    />
+                    <Label htmlFor="campaign">Selecionar Campanha</Label>
+                    <Select value={selectedCampaignId} onValueChange={setSelectedCampaignId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Escolha uma campanha..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {campaigns.map((campaign) => (
+                          <SelectItem key={campaign.id} value={campaign.id}>
+                            {campaign.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="flex items-end">
                     <Button 
                       onClick={createWhatsAppLink}
-                      disabled={!newCampaignName.trim()}
+                      disabled={!selectedCampaignId}
                     >
                       <Plus className="mr-2 h-4 w-4" />
                       Criar Link
@@ -414,7 +460,7 @@ const Dashboard = () => {
                     {whatsappLinks.map((link) => (
                       <div key={link.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                         <div className="flex-1">
-                          <p className="font-medium">{link.campaign_name}</p>
+                          <p className="font-medium">{link.campaigns?.name || 'Campanha não encontrada'}</p>
                           <p className="text-sm text-muted-foreground truncate max-w-md">
                             {link.whatsapp_link}
                           </p>
