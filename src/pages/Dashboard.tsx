@@ -128,40 +128,34 @@ const Dashboard = () => {
     }
   };
 
-  const generateWhatsAppLink = (campaignName: string) => {
+  const generateWhatsAppLink = () => {
     if (!profile || !user) return '';
     
     const baseUrl = 'https://api.whatsapp.com/send';
     const phone = profile.whatsapp_phone.replace(/\D/g, ''); // Remove non-digits
-    const message = `Oi, o ${profile.first_name} ${profile.last_name} (${user.id}) me indicou para participar da mobilização da campanha ${campaignName}.`;
+    const message = `Oi, o ${profile.first_name} ${profile.last_name} (${user.id}) me indicou para participar da mobilização.`;
     
     return `${baseUrl}?phone=${phone}&text=${encodeURIComponent(message)}`;
   };
 
   const createWhatsAppLink = async () => {
-    if (!selectedCampaignId || !user || !profile) return;
+    if (!user || !profile) return;
 
-    const selectedCampaign = campaigns.find(c => c.id === selectedCampaignId);
-    if (!selectedCampaign) return;
-
-    const whatsappLink = generateWhatsAppLink(selectedCampaign.name);
+    const whatsappLink = generateWhatsAppLink();
     
     try {
       const { data, error } = await supabase
         .from('whatsapp_links')
         .insert({
           user_id: user.id,
-          campaign_id: selectedCampaignId,
+          campaign_id: null,
           whatsapp_link: whatsappLink
         })
         .select(`
           id, 
           campaign_id, 
           whatsapp_link, 
-          created_at,
-          campaigns (
-            name
-          )
+          created_at
         `)
         .single();
 
@@ -176,7 +170,6 @@ const Dashboard = () => {
       }
 
       setWhatsappLinks(prev => [data, ...prev]);
-      setSelectedCampaignId('');
       toast({
         title: 'Link criado',
         description: 'Link do WhatsApp criado com sucesso!',
@@ -427,31 +420,14 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <Label htmlFor="campaign">Selecionar Campanha</Label>
-                    <Select value={selectedCampaignId} onValueChange={setSelectedCampaignId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Escolha uma campanha..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {campaigns.map((campaign) => (
-                          <SelectItem key={campaign.id} value={campaign.id}>
-                            {campaign.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex items-end">
-                    <Button 
-                      onClick={createWhatsAppLink}
-                      disabled={!selectedCampaignId}
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Criar Link
-                    </Button>
-                  </div>
+                <div className="flex justify-center">
+                  <Button 
+                    onClick={createWhatsAppLink}
+                    className="w-full max-w-md"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Criar Link de Mobilização
+                  </Button>
                 </div>
 
                 {whatsappLinks.length > 0 && (
@@ -460,7 +436,7 @@ const Dashboard = () => {
                     {whatsappLinks.map((link) => (
                       <div key={link.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                         <div className="flex-1">
-                          <p className="font-medium">{link.campaigns?.name || 'Campanha não encontrada'}</p>
+                          <p className="font-medium">Link de Mobilização</p>
                           <p className="text-sm text-muted-foreground truncate max-w-md">
                             {link.whatsapp_link}
                           </p>
