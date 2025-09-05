@@ -430,14 +430,19 @@ const Dashboard = () => {
                 
                 {whatsappLinks.length > 0 && (
                   <div className="space-y-3">
-                    <h4 className="font-medium">Seu Link:</h4>
+                    <h4 className="font-medium">Seu Link de Mobilização:</h4>
                     {whatsappLinks.map((link) => (
                       <div key={link.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                        <div className="flex gap-2">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium mb-2">Link de Mobilização</p>
+                          <p className="text-xs text-muted-foreground break-all">{link.whatsapp_link}</p>
+                        </div>
+                        <div className="flex gap-2 ml-3">
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => copyToClipboard(link.whatsapp_link)}
+                            title="Copiar link"
                           >
                             <Copy className="h-4 w-4" />
                           </Button>
@@ -445,12 +450,79 @@ const Dashboard = () => {
                             size="sm"
                             variant="outline"
                             onClick={() => window.open(link.whatsapp_link, '_blank')}
+                            title="Abrir no WhatsApp"
                           >
                             <ExternalLink className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => deleteWhatsAppLink(link.id)}
+                            title="Excluir link"
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+
+                {whatsappLinks.length === 0 && (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground mb-4">Você ainda não possui um link de mobilização</p>
+                    <Button 
+                      onClick={async () => {
+                        if (!profile || !user) return;
+                        const whatsappLink = generateWhatsAppLink('');
+                        
+                        try {
+                          const { data, error } = await supabase
+                            .from('whatsapp_links')
+                            .insert({
+                              user_id: user.id,
+                              campaign_id: null,
+                              whatsapp_link: whatsappLink
+                            })
+                            .select(`
+                              id, 
+                              campaign_id, 
+                              whatsapp_link, 
+                              created_at,
+                              campaigns (
+                                name
+                              )
+                            `)
+                            .single();
+
+                          if (error) {
+                            console.error('Error creating WhatsApp link:', error);
+                            toast({
+                              title: 'Erro',
+                              description: 'Não foi possível criar o link do WhatsApp.',
+                              variant: 'destructive',
+                            });
+                            return;
+                          }
+
+                          setWhatsappLinks([data]);
+                          toast({
+                            title: 'Link criado',
+                            description: 'Link do WhatsApp criado com sucesso!',
+                          });
+                        } catch (error) {
+                          console.error('Error creating WhatsApp link:', error);
+                          toast({
+                            title: 'Erro',
+                            description: 'Não foi possível criar o link do WhatsApp.',
+                            variant: 'destructive',
+                          });
+                        }
+                      }}
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Criar Link de Mobilização
+                    </Button>
                   </div>
                 )}
 
