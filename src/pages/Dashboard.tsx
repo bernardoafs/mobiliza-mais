@@ -141,6 +141,9 @@ const Dashboard = () => {
   const createWhatsAppLink = async () => {
     if (!selectedCampaignId || !user || !profile) return;
 
+    const selectedCampaign = campaigns.find(c => c.id === selectedCampaignId);
+    if (!selectedCampaign) return;
+
     const whatsappLink = generateWhatsAppLink(selectedCampaign.name);
     
     try {
