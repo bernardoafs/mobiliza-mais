@@ -20,7 +20,7 @@ const AdminMaterials = () => {
   const { isAdmin } = useAdmin();
   const { toast } = useToast();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [selectedCampaign, setSelectedCampaign] = useState<string>('');
+  const [selectedCampaign, setSelectedCampaign] = useState<string>('all');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -160,7 +160,7 @@ const AdminMaterials = () => {
                     <SelectValue placeholder="Selecione uma campanha..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todas as campanhas</SelectItem>
+                    <SelectItem value="all">Todas as campanhas</SelectItem>
                     {campaigns.map((campaign) => (
                       <SelectItem key={campaign.id} value={campaign.id}>
                         {campaign.name}
