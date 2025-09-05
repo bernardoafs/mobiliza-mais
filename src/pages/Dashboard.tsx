@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { LogOut, User, CheckCircle, Clock, Target } from 'lucide-react';
+import { LogOut, User, CheckCircle, Clock, Target, Copy, Plus, Trash2, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 
@@ -13,6 +15,7 @@ interface Profile {
   last_name: string;
   city: string;
   state: string;
+  whatsapp_phone: string;
 }
 
 interface UserInterest {
@@ -21,13 +24,22 @@ interface UserInterest {
   };
 }
 
+interface WhatsAppLink {
+  id: string;
+  campaign_name: string;
+  whatsapp_link: string;
+  created_at: string;
+}
+
 const Dashboard = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userInterests, setUserInterests] = useState<UserInterest[]>([]);
+  const [whatsappLinks, setWhatsappLinks] = useState<WhatsAppLink[]>([]);
   const [loading, setLoading] = useState(true);
+  const [newCampaignName, setNewCampaignName] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -42,7 +54,7 @@ const Dashboard = () => {
       // Fetch profile
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('first_name, last_name, city, state')
+        .select('first_name, last_name, city, state, whatsapp_phone')
         .eq('user_id', user.id)
         .single();
 
@@ -67,10 +79,119 @@ const Dashboard = () => {
       } else {
         setUserInterests(interestsData || []);
       }
+
+      // Fetch WhatsApp links
+      const { data: linksData, error: linksError } = await supabase
+        .from('whatsapp_links')
+        .select('id, campaign_name, whatsapp_link, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (linksError) {
+        console.error('Error fetching WhatsApp links:', linksError);
+      } else {
+        setWhatsappLinks(linksData || []);
+      }
     } catch (error) {
       console.error('Error fetching user data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const generateWhatsAppLink = (campaignName: string) => {
+    if (!profile || !user) return '';
+    
+    const baseUrl = 'https://api.whatsapp.com/send';
+    const phone = profile.whatsapp_phone.replace(/\D/g, ''); // Remove non-digits
+    const message = `Oi, o ${profile.first_name} ${profile.last_name} (${user.id}) me indicou para participar da mobilização da campanha ${campaignName}.`;
+    
+    return `${baseUrl}?phone=${phone}&text=${encodeURIComponent(message)}`;
+  };
+
+  const createWhatsAppLink = async () => {
+    if (!newCampaignName.trim() || !user || !profile) return;
+
+    const whatsappLink = generateWhatsAppLink(newCampaignName);
+    
+    try {
+      const { data, error } = await supabase
+        .from('whatsapp_links')
+        .insert({
+          user_id: user.id,
+          campaign_name: newCampaignName,
+          whatsapp_link: whatsappLink
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating WhatsApp link:', error);
+        toast({
+          title: 'Erro',
+          description: 'Não foi possível criar o link do WhatsApp.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setWhatsappLinks(prev => [data, ...prev]);
+      setNewCampaignName('');
+      toast({
+        title: 'Link criado',
+        description: 'Link do WhatsApp criado com sucesso!',
+      });
+    } catch (error) {
+      console.error('Error creating WhatsApp link:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível criar o link do WhatsApp.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const deleteWhatsAppLink = async (linkId: string) => {
+    try {
+      const { error } = await supabase
+        .from('whatsapp_links')
+        .delete()
+        .eq('id', linkId);
+
+      if (error) {
+        console.error('Error deleting WhatsApp link:', error);
+        toast({
+          title: 'Erro',
+          description: 'Não foi possível excluir o link.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setWhatsappLinks(prev => prev.filter(link => link.id !== linkId));
+      toast({
+        title: 'Link excluído',
+        description: 'Link do WhatsApp excluído com sucesso!',
+      });
+    } catch (error) {
+      console.error('Error deleting WhatsApp link:', error);
+    }
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({
+        title: 'Copiado!',
+        description: 'Link copiado para a área de transferência.',
+      });
+    } catch (error) {
+      console.error('Error copying to clipboard:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível copiar o link.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -248,6 +369,92 @@ const Dashboard = () => {
                     </p>
                   </div>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <ExternalLink className="mr-2 h-5 w-5" />
+                Links de Mobilização WhatsApp
+              </CardTitle>
+              <CardDescription>
+                Crie links personalizados para compartilhar e mobilizar contatos via WhatsApp
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Label htmlFor="campaign">Nome da Campanha</Label>
+                    <Input
+                      id="campaign"
+                      placeholder="Ex: Eleições 2026"
+                      value={newCampaignName}
+                      onChange={(e) => setNewCampaignName(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <Button 
+                      onClick={createWhatsAppLink}
+                      disabled={!newCampaignName.trim()}
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Criar Link
+                    </Button>
+                  </div>
+                </div>
+
+                {whatsappLinks.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="font-medium">Seus Links:</h4>
+                    {whatsappLinks.map((link) => (
+                      <div key={link.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                        <div className="flex-1">
+                          <p className="font-medium">{link.campaign_name}</p>
+                          <p className="text-sm text-muted-foreground truncate max-w-md">
+                            {link.whatsapp_link}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Criado em {new Date(link.created_at).toLocaleDateString('pt-BR')}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => copyToClipboard(link.whatsapp_link)}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => window.open(link.whatsapp_link, '_blank')}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => deleteWhatsAppLink(link.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {whatsappLinks.length === 0 && (
+                  <p className="text-muted-foreground text-sm text-center py-4">
+                    Nenhum link criado ainda. Crie seu primeiro link de mobilização!
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>

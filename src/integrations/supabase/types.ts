@@ -121,6 +121,33 @@ export type Database = {
           },
         ]
       }
+      whatsapp_links: {
+        Row: {
+          campaign_name: string
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+          whatsapp_link: string
+        }
+        Insert: {
+          campaign_name: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+          whatsapp_link: string
+        }
+        Update: {
+          campaign_name?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+          whatsapp_link?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
