@@ -125,20 +125,48 @@ const AdminMaterials = () => {
     }
 
     try {
-      const { error } = await supabase
+      const { data: newPost, error } = await supabase
         .from('campaign_posts')
         .insert({
           campaign_id: selectedCampaignForLink,
           post_url: newPostUrl,
           post_type: newPostType
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
 
-      toast({
-        title: 'Sucesso',
-        description: 'Link adicionado com sucesso!',
-      });
+      // Generate shortened links for all users
+      try {
+        const { error: linksError } = await supabase.functions.invoke('generate-shortened-links', {
+          body: {
+            campaign_post_id: newPost.id,
+            post_url: newPostUrl,
+          },
+        });
+
+        if (linksError) {
+          console.error('Error generating shortened links:', linksError);
+          toast({
+            title: 'Aviso',
+            description: 'Link adicionado, mas houve erro ao gerar links reduzidos.',
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: 'Sucesso',
+            description: 'Link adicionado e links reduzidos gerados para todos os usuários.',
+          });
+        }
+      } catch (linksError) {
+        console.error('Error calling generate-shortened-links function:', linksError);
+        toast({
+          title: 'Aviso',
+          description: 'Link adicionado, mas houve erro ao gerar links reduzidos.',
+          variant: 'destructive',
+        });
+      }
 
       setDialogOpen(false);
       setNewPostUrl('');
@@ -149,7 +177,7 @@ const AdminMaterials = () => {
       console.error('Error adding post:', error);
       toast({
         title: 'Erro',
-        description: 'Erro ao adicionar link.',
+        description: 'Não foi possível adicionar o link.',
         variant: 'destructive',
       });
     }

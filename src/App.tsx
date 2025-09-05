@@ -11,6 +11,8 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import AdminInterests from "./pages/AdminInterests";
 import AdminMaterials from "./pages/AdminMaterials";
+import AdminDomains from "./pages/AdminDomains";
+import Redirect from "./pages/Redirect";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -60,7 +62,16 @@ const App = () => {
                   </ProtectedRoute>
                 } 
               />
+              <Route 
+                path="/admin/domains" 
+                element={
+                  <ProtectedRoute>
+                    <AdminDomains />
+                  </ProtectedRoute>
+                } 
+              />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="/:shortCode" element={<Redirect />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

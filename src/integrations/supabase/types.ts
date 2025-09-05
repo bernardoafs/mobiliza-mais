@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_domains: {
+        Row: {
+          created_at: string
+          domain: string
+          id: string
+          is_active: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          domain: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          domain?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       campaign_interests: {
         Row: {
           campaign_id: string
@@ -183,6 +207,60 @@ export type Database = {
           will_be_candidate?: boolean | null
         }
         Relationships: []
+      }
+      shortened_links: {
+        Row: {
+          campaign_post_id: string
+          click_count: number
+          created_at: string
+          domain_id: string
+          id: string
+          original_url: string
+          short_code: string
+          shortened_url: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          campaign_post_id: string
+          click_count?: number
+          created_at?: string
+          domain_id: string
+          id?: string
+          original_url: string
+          short_code: string
+          shortened_url: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          campaign_post_id?: string
+          click_count?: number
+          created_at?: string
+          domain_id?: string
+          id?: string
+          original_url?: string
+          short_code?: string
+          shortened_url?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shortened_links_campaign_post_id_fkey"
+            columns: ["campaign_post_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shortened_links_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "admin_domains"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_interests: {
         Row: {

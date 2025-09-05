@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { FileText, Settings, Home } from 'lucide-react';
+import { FileText, Settings, Home, Globe } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAdmin } from '@/hooks/useAdmin';
 
@@ -41,6 +41,15 @@ const Navigation = () => {
             >
               <FileText className="h-4 w-4" />
               Materiais
+            </Button>
+            
+            <Button
+              variant={isActive('/admin/domains') ? 'default' : 'outline'}
+              onClick={() => navigate('/admin/domains')}
+              className="flex items-center gap-2"
+            >
+              <Globe className="h-4 w-4" />
+              Domínios
             </Button>
           </>
         )}
