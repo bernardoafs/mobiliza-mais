@@ -14,7 +14,113 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      personal_interests: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          city: string
+          created_at: string
+          first_name: string
+          id: string
+          instagram_user: string
+          last_name: string
+          political_party: string | null
+          state: string
+          tiktok_user: string
+          updated_at: string
+          user_id: string
+          voting_state: string
+          was_candidate: boolean | null
+          whatsapp_phone: string
+          will_be_candidate: boolean | null
+        }
+        Insert: {
+          city: string
+          created_at?: string
+          first_name: string
+          id?: string
+          instagram_user: string
+          last_name: string
+          political_party?: string | null
+          state: string
+          tiktok_user: string
+          updated_at?: string
+          user_id: string
+          voting_state: string
+          was_candidate?: boolean | null
+          whatsapp_phone: string
+          will_be_candidate?: boolean | null
+        }
+        Update: {
+          city?: string
+          created_at?: string
+          first_name?: string
+          id?: string
+          instagram_user?: string
+          last_name?: string
+          political_party?: string | null
+          state?: string
+          tiktok_user?: string
+          updated_at?: string
+          user_id?: string
+          voting_state?: string
+          was_candidate?: boolean | null
+          whatsapp_phone?: string
+          will_be_candidate?: boolean | null
+        }
+        Relationships: []
+      }
+      user_interests: {
+        Row: {
+          created_at: string
+          id: string
+          interest_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          interest_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          interest_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_interests_interest_id_fkey"
+            columns: ["interest_id"]
+            isOneToOne: false
+            referencedRelation: "personal_interests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
