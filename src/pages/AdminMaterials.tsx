@@ -674,7 +674,7 @@ const AdminMaterials = () => {
               </div>
               <div className="p-4 bg-warning/10 rounded-lg border border-warning/20">
                 <h4 className="font-semibold text-warning mb-2">3. Distribuição Automática</h4>
-                <p className="text-sm text-muted-foregrounde">
+                <p className="text-sm text-muted-foreground">
                   Sistema identifica usuários com interesses compatíveis e envia materiais via WhatsApp
                 </p>
               </div>
