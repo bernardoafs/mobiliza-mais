@@ -432,7 +432,7 @@ const AdminMaterials = () => {
                             </div>
                             <div className="flex gap-3 text-xs text-muted-foreground">
                               <span>📊 {post.links_created || 0} links criados</span>
-                              <span>👆 {post.total_clicks || 0} cliques</span>
+                              <span>👆 {post.total_clicks || 0} cliques ({post.links_created && post.links_created > 0 ? Math.round(((post.total_clicks || 0) / post.links_created) * 100) : 0}%)</span>
                             </div>
                           </div>
                           <div className="flex gap-1 ml-2">
