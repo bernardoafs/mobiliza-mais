@@ -272,10 +272,8 @@ const AdminMaterials = () => {
                       <SelectValue placeholder="Selecione o tipo..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="imagem">Imagem</SelectItem>
-                      <SelectItem value="video">Vídeo</SelectItem>
-                      <SelectItem value="documento">Documento</SelectItem>
-                      <SelectItem value="audio">Áudio</SelectItem>
+                      <SelectItem value="instagram">Instagram</SelectItem>
+                      <SelectItem value="tiktok">TikTok</SelectItem>
                       <SelectItem value="link">Link</SelectItem>
                     </SelectContent>
                   </Select>
