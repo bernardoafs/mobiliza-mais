@@ -128,34 +128,40 @@ const Dashboard = () => {
     }
   };
 
-  const generateWhatsAppLink = () => {
+  const generateWhatsAppLink = (campaignName: string) => {
     if (!profile || !user) return '';
     
     const baseUrl = 'https://api.whatsapp.com/send';
     const phone = profile.whatsapp_phone.replace(/\D/g, ''); // Remove non-digits
-    const message = `Oi, o ${profile.first_name} ${profile.last_name} (${user.id}) me indicou para participar da mobilização.`;
+    const message = `Oi, o ${profile.first_name} ${profile.last_name} (${user.id}) me indicou para participar da mobilização da campanha ${campaignName}.`;
     
     return `${baseUrl}?phone=${phone}&text=${encodeURIComponent(message)}`;
   };
 
   const createWhatsAppLink = async () => {
-    if (!user || !profile) return;
+    if (!selectedCampaignId || !user || !profile) return;
 
-    const whatsappLink = generateWhatsAppLink();
+    const selectedCampaign = campaigns.find(c => c.id === selectedCampaignId);
+    if (!selectedCampaign) return;
+
+    const whatsappLink = generateWhatsAppLink(selectedCampaign.name);
     
     try {
       const { data, error } = await supabase
         .from('whatsapp_links')
         .insert({
           user_id: user.id,
-          campaign_id: null,
+          campaign_id: selectedCampaignId,
           whatsapp_link: whatsappLink
         })
         .select(`
           id, 
           campaign_id, 
           whatsapp_link, 
-          created_at
+          created_at,
+          campaigns (
+            name
+          )
         `)
         .single();
 
@@ -170,6 +176,7 @@ const Dashboard = () => {
       }
 
       setWhatsappLinks(prev => [data, ...prev]);
+      setSelectedCampaignId('');
       toast({
         title: 'Link criado',
         description: 'Link do WhatsApp criado com sucesso!',
@@ -412,29 +419,20 @@ const Dashboard = () => {
             <CardHeader>
               <CardTitle className="flex items-center">
                 <ExternalLink className="mr-2 h-5 w-5" />
-                Links de Mobilização WhatsApp
+                Link de Mobilização WhatsApp
               </CardTitle>
               <CardDescription>
-                Crie links personalizados para compartilhar e mobilizar contatos via WhatsApp
+                Use este link personalizado para mobilizar contatos via WhatsApp e construa sua rede
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-
+                
                 {whatsappLinks.length > 0 && (
                   <div className="space-y-3">
                     <h4 className="font-medium">Seus Links:</h4>
                     {whatsappLinks.map((link) => (
                       <div key={link.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                        <div className="flex-1">
-                          <p className="font-medium">Link de Mobilização</p>
-                          <p className="text-sm text-muted-foreground truncate max-w-md">
-                            {link.whatsapp_link}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Criado em {new Date(link.created_at).toLocaleDateString('pt-BR')}
-                          </p>
-                        </div>
                         <div className="flex gap-2">
                           <Button
                             size="sm"
@@ -450,13 +448,6 @@ const Dashboard = () => {
                           >
                             <ExternalLink className="h-4 w-4" />
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => deleteWhatsAppLink(link.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
                         </div>
                       </div>
                     ))}
@@ -464,9 +455,6 @@ const Dashboard = () => {
                 )}
 
                 {whatsappLinks.length === 0 && (
-                  <p className="text-muted-foreground text-sm text-center py-4">
-                    Nenhum link criado ainda. Crie seu primeiro link de mobilização!
-                  </p>
                 )}
               </div>
             </CardContent>
