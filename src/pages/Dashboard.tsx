@@ -510,17 +510,10 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Button 
-            onClick={() => navigate('/materials')} 
-            className="h-12"
-            variant="default"
-          >
-            Acessar Materiais de Divulgação
-          </Button>
+        <div className="mt-6">
           <Button 
             onClick={() => navigate('/register')} 
-            className="h-12"
+            className="h-12 w-full"
             variant="outline"
           >
             Atualizar Perfil
