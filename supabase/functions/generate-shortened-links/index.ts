@@ -80,10 +80,53 @@ serve(async (req) => {
       );
     }
 
-    // Get all users with profiles
+    // Get campaign interests first
+    const { data: campaignInterests, error: interestsError } = await supabase
+      .from('campaign_interests')
+      .select('interest_id')
+      .eq('campaign_id', (await supabase
+        .from('campaign_posts')
+        .select('campaign_id')
+        .eq('id', campaign_post_id)
+        .single()
+      ).data?.campaign_id);
+
+    if (interestsError) {
+      console.error('Error fetching campaign interests:', interestsError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch campaign interests' }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    const interestIds = campaignInterests?.map(ci => ci.interest_id) || [];
+
+    if (interestIds.length === 0) {
+      console.log('No interests associated with this campaign');
+      return new Response(
+        JSON.stringify({ 
+          success: true,
+          links_created: 0,
+          message: 'No users to notify - campaign has no associated interests'
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Get users with profiles who have at least one interest matching the campaign
     const { data: users, error: usersError } = await supabase
       .from('profiles')
-      .select('user_id, whatsapp_phone');
+      .select(`
+        user_id, 
+        whatsapp_phone,
+        user_interests!inner(interest_id)
+      `)
+      .in('user_interests.interest_id', interestIds);
 
     if (usersError) {
       console.error('Error fetching users:', usersError);
@@ -141,16 +184,47 @@ serve(async (req) => {
 
         createdLinks.push(newLink);
 
-        // TODO: Integrate with botconversa API to send WhatsApp message
-        // Example payload that would be sent to botconversa:
-        const botconversaPayload = {
-          phone: user.whatsapp_phone,
-          message: `Novo material disponível: ${shortenedUrl}`,
-          shortened_url: shortenedUrl,
-          user_id: user.user_id,
-        };
+        // Send WhatsApp message via botconversa API
+        const botconversaApiKey = Deno.env.get('BOTCONVERSA_API_KEY');
         
-        console.log('Would send to botconversa:', botconversaPayload);
+        if (botconversaApiKey && user.whatsapp_phone) {
+          try {
+            const message = `🚀 *Novo material disponível!*
+
+📋 Acesse o link personalizado:
+${shortenedUrl}
+
+ℹ️ *Instruções:*
+• Clique no link para visualizar o conteúdo
+• O link é exclusivo e rastreável
+• Compartilhe apenas se autorizado
+
+📊 Seus cliques serão contabilizados para métricas`;
+
+            const botconversaResponse = await fetch('https://api.botconversa.com.br/api/v1/webhook-message', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${botconversaApiKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                phone: user.whatsapp_phone,
+                message: message,
+              }),
+            });
+
+            if (botconversaResponse.ok) {
+              console.log(`Message sent successfully to ${user.whatsapp_phone}`);
+            } else {
+              const errorData = await botconversaResponse.text();
+              console.error(`Failed to send message to ${user.whatsapp_phone}:`, errorData);
+            }
+          } catch (error) {
+            console.error(`Error sending message to ${user.whatsapp_phone}:`, error);
+          }
+        } else {
+          console.log(`Skipping message for user ${user.user_id} - missing API key or phone`);
+        }
         
       } catch (error) {
         console.error('Error processing user:', user.user_id, error);
