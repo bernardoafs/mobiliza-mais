@@ -454,8 +454,6 @@ const Dashboard = () => {
                   </div>
                 )}
 
-                {whatsappLinks.length === 0 && (
-                )}
               </div>
             </CardContent>
           </Card>
