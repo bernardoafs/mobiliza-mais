@@ -33,6 +33,8 @@ interface CampaignWithData {
     post_url: string;
     post_type: string;
     created_at: string;
+    links_created?: number;
+    total_clicks?: number;
   }>;
 }
 
@@ -93,10 +95,38 @@ const AdminMaterials = () => {
 
           if (postsError) throw postsError;
 
+          // Buscar estatísticas de cliques para cada post
+          const postsWithStats = await Promise.all(
+            (campaignPosts || []).map(async (post) => {
+              const { data: linkStats, error: statsError } = await supabase
+                .from('shortened_links')
+                .select('click_count')
+                .eq('campaign_post_id', post.id);
+
+              if (statsError) {
+                console.error('Error fetching link stats:', statsError);
+                return {
+                  ...post,
+                  links_created: 0,
+                  total_clicks: 0
+                };
+              }
+
+              const links_created = linkStats?.length || 0;
+              const total_clicks = linkStats?.reduce((sum, link) => sum + (link.click_count || 0), 0) || 0;
+
+              return {
+                ...post,
+                links_created,
+                total_clicks
+              };
+            })
+          );
+
           return {
             ...campaign,
             interests: campaignInterests?.map(ci => ci.personal_interests).filter(Boolean) || [],
-            posts: campaignPosts || []
+            posts: postsWithStats
           };
         })
       );
@@ -139,7 +169,7 @@ const AdminMaterials = () => {
 
       // Generate shortened links for all users
       try {
-        const { error: linksError } = await supabase.functions.invoke('generate-shortened-links', {
+        const { data: linksResponse, error: linksError } = await supabase.functions.invoke('generate-shortened-links', {
           body: {
             campaign_post_id: newPost.id,
             post_url: newPostUrl,
@@ -152,6 +182,12 @@ const AdminMaterials = () => {
             title: 'Aviso',
             description: 'Link adicionado, mas houve erro ao gerar links reduzidos.',
             variant: 'destructive',
+          });
+        } else if (linksResponse) {
+          const totalClicks = linksResponse.links?.reduce((sum: number, link: any) => sum + (link.click_count || 0), 0) || 0;
+          toast({
+            title: 'Sucesso',
+            description: `Link adicionado! ${linksResponse.links_created} links reduzidos gerados, ${totalClicks} cliques no total.`,
           });
         } else {
           toast({
@@ -383,16 +419,20 @@ const AdminMaterials = () => {
                       {campaign.posts.map((post) => (
                         <div
                           key={post.id}
-                          className="flex items-center justify-between p-2 bg-muted/50 rounded-lg text-sm"
+                          className="flex items-center justify-between p-3 bg-muted/50 rounded-lg text-sm"
                         >
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 mb-1">
                               <Badge variant="outline" className="text-xs capitalize">
                                 {post.post_type}
                               </Badge>
                               <span className="truncate text-muted-foreground">
                                 {post.post_url}
                               </span>
+                            </div>
+                            <div className="flex gap-3 text-xs text-muted-foreground">
+                              <span>📊 {post.links_created || 0} links criados</span>
+                              <span>👆 {post.total_clicks || 0} cliques</span>
                             </div>
                           </div>
                           <div className="flex gap-1 ml-2">
