@@ -430,7 +430,7 @@ const Dashboard = () => {
                 
                 {whatsappLinks.length > 0 && (
                   <div className="space-y-3">
-                    <h4 className="font-medium">Seus Links:</h4>
+                    <h4 className="font-medium">Seu Link:</h4>
                     {whatsappLinks.map((link) => (
                       <div key={link.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                         <div className="flex gap-2">
