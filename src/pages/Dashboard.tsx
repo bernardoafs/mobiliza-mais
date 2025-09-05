@@ -420,15 +420,6 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex justify-center">
-                  <Button 
-                    onClick={createWhatsAppLink}
-                    className="w-full max-w-md"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Criar Link de Mobilização
-                  </Button>
-                </div>
 
                 {whatsappLinks.length > 0 && (
                   <div className="space-y-3">
