@@ -80,16 +80,29 @@ serve(async (req) => {
       );
     }
 
-    // Get campaign interests first
+    // Get campaign_id first
+    const { data: postData, error: postError } = await supabase
+      .from('campaign_posts')
+      .select('campaign_id')
+      .eq('id', campaign_post_id)
+      .single();
+
+    if (postError || !postData) {
+      console.error('Error fetching post:', postError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch post data' }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Get campaign interests
     const { data: campaignInterests, error: interestsError } = await supabase
       .from('campaign_interests')
       .select('interest_id')
-      .eq('campaign_id', (await supabase
-        .from('campaign_posts')
-        .select('campaign_id')
-        .eq('id', campaign_post_id)
-        .single()
-      ).data?.campaign_id);
+      .eq('campaign_id', postData.campaign_id);
 
     if (interestsError) {
       console.error('Error fetching campaign interests:', interestsError);
@@ -118,15 +131,44 @@ serve(async (req) => {
       );
     }
 
-    // Get users with profiles who have at least one interest matching the campaign
+    // Get users who have interests matching the campaign
+    const { data: userInterests, error: userInterestsError } = await supabase
+      .from('user_interests')
+      .select('user_id')
+      .in('interest_id', interestIds);
+
+    if (userInterestsError) {
+      console.error('Error fetching user interests:', userInterestsError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch user interests' }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    const userIds = [...new Set(userInterests?.map(ui => ui.user_id) || [])];
+
+    if (userIds.length === 0) {
+      console.log('No users with matching interests');
+      return new Response(
+        JSON.stringify({ 
+          success: true,
+          links_created: 0,
+          message: 'No users have interests matching this campaign'
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Get profiles for users with matching interests
     const { data: users, error: usersError } = await supabase
       .from('profiles')
-      .select(`
-        user_id, 
-        whatsapp_phone,
-        user_interests!inner(interest_id)
-      `)
-      .in('user_interests.interest_id', interestIds);
+      .select('user_id, whatsapp_phone')
+      .in('user_id', userIds);
 
     if (usersError) {
       console.error('Error fetching users:', usersError);
