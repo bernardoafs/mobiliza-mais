@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { LogOut, User, CheckCircle, Clock, Target, Copy, Plus, Trash2, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
+import Navigation from '@/components/Navigation';
 
 interface Profile {
   first_name: string;
@@ -293,6 +294,9 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 to-background p-4">
       <div className="max-w-6xl mx-auto">
+        {/* Navigation */}
+        <Navigation />
+        
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-primary">

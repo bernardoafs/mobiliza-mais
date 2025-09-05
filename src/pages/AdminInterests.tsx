@@ -1,14 +1,17 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Edit, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Edit, Trash2, AlertTriangle, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { useAdmin } from '@/hooks/useAdmin';
+import { useNavigate } from 'react-router-dom';
+import Navigation from '@/components/Navigation';
 
 interface PersonalInterest {
   id: string;
@@ -19,6 +22,8 @@ interface PersonalInterest {
 
 const AdminInterests = () => {
   const { toast } = useToast();
+  const { isAdmin } = useAdmin();
+  const navigate = useNavigate();
   const [interests, setInterests] = useState<PersonalInterest[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -26,8 +31,12 @@ const AdminInterests = () => {
   const [formLoading, setFormLoading] = useState(false);
 
   useEffect(() => {
+    if (!isAdmin) {
+      navigate('/dashboard');
+      return;
+    }
     fetchInterests();
-  }, []);
+  }, [isAdmin, navigate]);
 
   const fetchInterests = async () => {
     setLoading(true);
@@ -136,6 +145,25 @@ const AdminInterests = () => {
     setDialogOpen(false);
     setEditingInterest(null);
   };
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Card className="p-6 max-w-md">
+          <div className="text-center space-y-4">
+            <AlertTriangle className="h-12 w-12 text-warning mx-auto" />
+            <h2 className="text-xl font-semibold">Acesso Negado</h2>
+            <p className="text-muted-foreground">
+              Você não tem permissão para acessar esta área.
+            </p>
+            <Button onClick={() => navigate('/dashboard')}>
+              Voltar ao Dashboard
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

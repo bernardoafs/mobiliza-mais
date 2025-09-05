@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Download, Share2, Image, Video, FileText, Megaphone } from 'lucide-react';
+import Navigation from '@/components/Navigation';
 
 const Materials = () => {
   const navigate = useNavigate();
@@ -51,25 +52,20 @@ const Materials = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 to-background p-4">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex items-center gap-4 mb-8">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => navigate('/dashboard')}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-primary">
-              Materiais de Divulgação
-            </h1>
-            <p className="text-muted-foreground">
-              Acesse e baixe materiais prontos para suas redes sociais
-            </p>
-          </div>
+    <div className="min-h-screen bg-background p-4">
+      <div className="max-w-6xl mx-auto space-y-6">
+        {/* Navigation */}
+        <Navigation />
+        
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <h1 className="text-3xl font-bold text-primary">
+            Materiais de Divulgação
+          </h1>
         </div>
+        <p className="text-muted-foreground">
+          Acesse e baixe materiais prontos para suas redes sociais
+        </p>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {materialsCategories.map((category, index) => (
