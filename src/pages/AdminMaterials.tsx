@@ -49,6 +49,11 @@ const AdminMaterials = () => {
   const [selectedCampaignForLink, setSelectedCampaignForLink] = useState<string>('');
   const [newPostUrl, setNewPostUrl] = useState('');
   const [newPostType, setNewPostType] = useState('');
+  const [createCampaignDialogOpen, setCreateCampaignDialogOpen] = useState(false);
+  const [newCampaignName, setNewCampaignName] = useState('');
+  const [newCampaignLink, setNewCampaignLink] = useState('');
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const [availableInterests, setAvailableInterests] = useState<Array<{id: string, name: string, description: string | null}>>([]);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -56,7 +61,22 @@ const AdminMaterials = () => {
       return;
     }
     fetchCampaignsWithData();
+    fetchAvailableInterests();
   }, [isAdmin, navigate]);
+
+  const fetchAvailableInterests = async () => {
+    try {
+      const { data: interests, error } = await supabase
+        .from('personal_interests')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+      setAvailableInterests(interests || []);
+    } catch (error) {
+      console.error('Error fetching interests:', error);
+    }
+  };
 
   const fetchCampaignsWithData = async () => {
     try {
@@ -141,6 +161,89 @@ const AdminMaterials = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateCampaign = async () => {
+    if (!newCampaignName || !newCampaignLink || selectedInterests.length === 0) {
+      toast({
+        title: 'Erro',
+        description: 'Preencha todos os campos e selecione pelo menos um interesse.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      // Create campaign
+      const { data: newCampaign, error: campaignError } = await supabase
+        .from('campaigns')
+        .insert({
+          name: newCampaignName
+        })
+        .select()
+        .single();
+
+      if (campaignError) throw campaignError;
+
+      // Link interests to campaign
+      const interestLinks = selectedInterests.map(interestId => ({
+        campaign_id: newCampaign.id,
+        interest_id: interestId
+      }));
+
+      const { error: interestsError } = await supabase
+        .from('campaign_interests')
+        .insert(interestLinks);
+
+      if (interestsError) throw interestsError;
+
+      // Create initial post with the provided link
+      const { data: newPost, error: postError } = await supabase
+        .from('campaign_posts')
+        .insert({
+          campaign_id: newCampaign.id,
+          post_url: newCampaignLink,
+          post_type: 'link'
+        })
+        .select()
+        .single();
+
+      if (postError) throw postError;
+
+      // Generate shortened links
+      try {
+        const { data: linksResponse, error: linksError } = await supabase.functions.invoke('generate-shortened-links', {
+          body: {
+            campaign_post_id: newPost.id,
+            post_url: newCampaignLink,
+          },
+        });
+
+        if (linksError) {
+          console.error('Error generating shortened links:', linksError);
+        }
+      } catch (linksError) {
+        console.error('Error calling generate-shortened-links function:', linksError);
+      }
+
+      toast({
+        title: 'Sucesso',
+        description: 'Campanha criada com sucesso!',
+      });
+
+      setCreateCampaignDialogOpen(false);
+      setNewCampaignName('');
+      setNewCampaignLink('');
+      setSelectedInterests([]);
+      fetchCampaignsWithData();
+    } catch (error) {
+      console.error('Error creating campaign:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível criar a campanha.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -273,7 +376,6 @@ const AdminMaterials = () => {
     );
   }
 
-
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -290,64 +392,127 @@ const AdminMaterials = () => {
               Gerencie links e materiais por campanha para distribuição via WhatsApp
             </p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Novo Link
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Adicionar Novo Link</DialogTitle>
-                <DialogDescription>
-                  Adicione um novo link de material para uma campanha
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="campaign">Campanha</Label>
-                  <Select value={selectedCampaignForLink} onValueChange={setSelectedCampaignForLink}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione uma campanha..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {campaignsWithData.map((campaign) => (
-                        <SelectItem key={campaign.id} value={campaign.id}>
-                          {campaign.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="url">URL do Material</Label>
-                  <Input
-                    id="url"
-                    placeholder="https://..."
-                    value={newPostUrl}
-                    onChange={(e) => setNewPostUrl(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="type">Tipo de Material</Label>
-                  <Select value={newPostType} onValueChange={setNewPostType}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o tipo..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="instagram">Instagram</SelectItem>
-                      <SelectItem value="tiktok">TikTok</SelectItem>
-                      <SelectItem value="link">Link</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button onClick={handleAddPost} className="w-full">
-                  Adicionar Link
+          <div className="flex gap-2">
+            <Dialog open={createCampaignDialogOpen} onOpenChange={setCreateCampaignDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  Nova Campanha
                 </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Criar Nova Campanha</DialogTitle>
+                  <DialogDescription>
+                    Crie uma nova campanha com interesses e link inicial
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="campaignName">Nome da Campanha</Label>
+                    <Input
+                      id="campaignName"
+                      placeholder="Ex: Saúde em Minas"
+                      value={newCampaignName}
+                      onChange={(e) => setNewCampaignName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="campaignLink">Link Inicial</Label>
+                    <Input
+                      id="campaignLink"
+                      placeholder="https://..."
+                      value={newCampaignLink}
+                      onChange={(e) => setNewCampaignLink(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label>Interesses Vinculados</Label>
+                    <div className="grid grid-cols-2 gap-2 mt-2 max-h-32 overflow-y-auto">
+                      {availableInterests.map((interest) => (
+                        <label key={interest.id} className="flex items-center space-x-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={selectedInterests.includes(interest.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedInterests([...selectedInterests, interest.id]);
+                              } else {
+                                setSelectedInterests(selectedInterests.filter(id => id !== interest.id));
+                              }
+                            }}
+                            className="rounded"
+                          />
+                          <span>{interest.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <Button onClick={handleCreateCampaign} className="w-full">
+                    Criar Campanha
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  Novo Link
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Adicionar Novo Link</DialogTitle>
+                  <DialogDescription>
+                    Adicione um novo link de material para uma campanha
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="campaign">Campanha</Label>
+                    <Select value={selectedCampaignForLink} onValueChange={setSelectedCampaignForLink}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione uma campanha..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {campaignsWithData.map((campaign) => (
+                          <SelectItem key={campaign.id} value={campaign.id}>
+                            {campaign.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="url">URL do Material</Label>
+                    <Input
+                      id="url"
+                      placeholder="https://..."
+                      value={newPostUrl}
+                      onChange={(e) => setNewPostUrl(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="type">Tipo de Material</Label>
+                    <Select value={newPostType} onValueChange={setNewPostType}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o tipo..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="instagram">Instagram</SelectItem>
+                        <SelectItem value="tiktok">TikTok</SelectItem>
+                        <SelectItem value="link">Link</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button onClick={handleAddPost} className="w-full">
+                    Adicionar Link
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {/* Campaign Filter */}
@@ -509,7 +674,7 @@ const AdminMaterials = () => {
               </div>
               <div className="p-4 bg-warning/10 rounded-lg border border-warning/20">
                 <h4 className="font-semibold text-warning mb-2">3. Distribuição Automática</h4>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foregrounde">
                   Sistema identifica usuários com interesses compatíveis e envia materiais via WhatsApp
                 </p>
               </div>
