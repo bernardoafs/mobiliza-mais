@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { LogOut, User, CheckCircle, Clock, Target, Copy, Plus, Trash2, ExternalLink } from 'lucide-react';
+import { LogOut, User, CheckCircle, Clock, Target, Copy, Plus, Trash2, ExternalLink, Mail, MailOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import Navigation from '@/components/Navigation';
@@ -40,6 +40,15 @@ interface WhatsAppLink {
   };
 }
 
+interface ShortenedLink {
+  id: string;
+  shortened_url: string;
+  original_url: string;
+  click_count: number;
+  created_at: string;
+  campaign_post_id: string;
+}
+
 const Dashboard = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
@@ -48,6 +57,7 @@ const Dashboard = () => {
   const [userInterests, setUserInterests] = useState<UserInterest[]>([]);
   const [whatsappLinks, setWhatsappLinks] = useState<WhatsAppLink[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [receivedLinks, setReceivedLinks] = useState<ShortenedLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCampaignId, setSelectedCampaignId] = useState('');
 
@@ -121,6 +131,19 @@ const Dashboard = () => {
         console.error('Error fetching WhatsApp links:', linksError);
       } else {
         setWhatsappLinks(linksData || []);
+      }
+
+      // Fetch received shortened links
+      const { data: receivedLinksData, error: receivedLinksError } = await supabase
+        .from('shortened_links')
+        .select('id, shortened_url, original_url, click_count, created_at, campaign_post_id')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (receivedLinksError) {
+        console.error('Error fetching received links:', receivedLinksError);
+      } else {
+        setReceivedLinks(receivedLinksData || []);
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
@@ -506,6 +529,68 @@ const Dashboard = () => {
                   </p>
                 )}
               </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Mail className="mr-2 h-5 w-5" />
+                Links Recebidos
+              </CardTitle>
+              <CardDescription>
+                Links de mobilização que foram enviados para você
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {receivedLinks.length > 0 ? (
+                <div className="space-y-3">
+                  {receivedLinks.map((link) => (
+                    <div key={link.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        {link.click_count > 0 ? (
+                          <MailOpen className="h-5 w-5 text-primary" />
+                        ) : (
+                          <Mail className="h-5 w-5 text-muted-foreground" />
+                        )}
+                        <div className="flex-1">
+                          <p className="font-medium text-sm truncate max-w-md">
+                            {link.original_url}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Recebido em {new Date(link.created_at).toLocaleDateString('pt-BR')} às {new Date(link.created_at).toLocaleTimeString('pt-BR')}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {link.click_count > 0 ? `Clicado ${link.click_count} vez(es)` : 'Ainda não clicado'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => copyToClipboard(link.shortened_url)}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => window.open(link.shortened_url, '_blank')}
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-sm text-center py-4">
+                  Nenhum link recebido ainda.
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>
