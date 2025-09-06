@@ -538,40 +538,55 @@ const Dashboard = () => {
             <CardHeader>
               <CardTitle className="flex items-center">
                 <Mail className="mr-2 h-5 w-5" />
-                Links Recebidos
+                Links Encurtados Recebidos
               </CardTitle>
               <CardDescription>
-                Links de mobilização que foram enviados para você
+                Links de mobilização encurtados que foram enviados para você via WhatsApp
               </CardDescription>
             </CardHeader>
             <CardContent>
               {receivedLinks.length > 0 ? (
                 <div className="space-y-3">
                   {receivedLinks.map((link) => (
-                    <div key={link.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        {link.click_count > 0 ? (
-                          <MailOpen className="h-5 w-5 text-primary" />
-                        ) : (
-                          <Mail className="h-5 w-5 text-muted-foreground" />
-                        )}
-                        <div className="flex-1">
-                          <p className="font-medium text-sm truncate max-w-md">
-                            {link.original_url}
+                    <div key={link.id} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border">
+                      <div className="flex items-center gap-4">
+                        <div className="flex-shrink-0">
+                          {link.click_count > 0 ? (
+                            <MailOpen className="h-6 w-6 text-success" />
+                          ) : (
+                            <Mail className="h-6 w-6 text-warning" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="font-semibold text-sm text-primary">
+                              Link Encurtado
+                            </p>
+                            <Badge variant={link.click_count > 0 ? "default" : "secondary"} className="text-xs">
+                              {link.click_count > 0 ? "Visualizado" : "Não visualizado"}
+                            </Badge>
+                          </div>
+                          <p className="text-sm font-medium text-foreground break-all">
+                            {link.shortened_url}
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            Recebido em {new Date(link.created_at).toLocaleDateString('pt-BR')} às {new Date(link.created_at).toLocaleTimeString('pt-BR')}
+                          <p className="text-xs text-muted-foreground mt-1 truncate">
+                            Original: {link.original_url}
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            {link.click_count > 0 ? `Clicado ${link.click_count} vez(es)` : 'Ainda não clicado'}
-                          </p>
+                          <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                            <span>📅 {new Date(link.created_at).toLocaleDateString('pt-BR')}</span>
+                            <span>🕒 {new Date(link.created_at).toLocaleTimeString('pt-BR')}</span>
+                            {link.click_count > 0 && (
+                              <span className="text-success">👁️ {link.click_count} visualizaç{link.click_count === 1 ? 'ão' : 'ões'}</span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-shrink-0">
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => copyToClipboard(link.shortened_url)}
+                          title="Copiar link encurtado"
                         >
                           <Copy className="h-4 w-4" />
                         </Button>
@@ -579,6 +594,7 @@ const Dashboard = () => {
                           size="sm"
                           variant="outline"
                           onClick={() => window.open(link.shortened_url, '_blank')}
+                          title="Abrir link encurtado"
                         >
                           <ExternalLink className="h-4 w-4" />
                         </Button>
@@ -587,9 +603,15 @@ const Dashboard = () => {
                   ))}
                 </div>
               ) : (
-                <p className="text-muted-foreground text-sm text-center py-4">
-                  Nenhum link recebido ainda.
-                </p>
+                <div className="text-center py-8">
+                  <Mail className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground text-sm">
+                    Nenhum link encurtado recebido ainda.
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Quando alguém enviar links para você via WhatsApp, eles aparecerão aqui.
+                  </p>
+                </div>
               )}
             </CardContent>
           </Card>
