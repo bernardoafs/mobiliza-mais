@@ -243,7 +243,7 @@ ${shortenedUrl}
 
 📊 Seus cliques serão contabilizados para métricas`;
 
-            const botconversaResponse = await fetch('https://api.botconversa.com.br/api/v1/webhook-message', {
+            const botconversaResponse = await fetch('https://api.botconversa.com.br/api/v1/webhook-send-message', {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${botconversaApiKey}`,
