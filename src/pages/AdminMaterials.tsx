@@ -349,6 +349,47 @@ const AdminMaterials = () => {
     }
   };
 
+  // Test Short.io API
+  const testShortIoApi = async () => {
+    try {
+      const testUrl = 'https://www.instagram.com/reel/test123/';
+      
+      const { data, error } = await supabase.functions.invoke('test-shortio', {
+        body: { url: testUrl }
+      });
+
+      if (error) {
+        console.error('Error testing Short.io API:', error);
+        toast({
+          title: "Erro",
+          description: `Erro ao testar API: ${error.message}`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data?.success) {
+        toast({
+          title: "Sucesso",
+          description: `Link encurtado: ${data.shortUrl}`,
+        });
+      } else {
+        toast({
+          title: "Erro",
+          description: data?.error || "Erro desconhecido na API",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao chamar função de teste",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (!isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -393,6 +434,14 @@ const AdminMaterials = () => {
             </p>
           </div>
           <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={testShortIoApi}
+              className="flex items-center gap-2"
+            >
+              <Settings className="h-4 w-4" />
+              Testar API Short.io
+            </Button>
             <Dialog open={createCampaignDialogOpen} onOpenChange={setCreateCampaignDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" className="flex items-center gap-2">

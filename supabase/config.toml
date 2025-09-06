@@ -61,3 +61,6 @@ port = 54330
 
 [functions.generate-shortened-links]
 verify_jwt = false
+
+[functions.test-shortio]
+verify_jwt = false
