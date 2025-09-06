@@ -390,6 +390,47 @@ const AdminMaterials = () => {
     }
   };
 
+  // Test Short.io API without domain
+  const testShortIoApiNoDomain = async () => {
+    try {
+      const testUrl = 'https://www.instagram.com/reel/test123/';
+      
+      const { data, error } = await supabase.functions.invoke('test-shortio-no-domain', {
+        body: { url: testUrl }
+      });
+
+      if (error) {
+        console.error('Error testing Short.io API:', error);
+        toast({
+          title: "Erro",
+          description: `Erro ao testar API: ${error.message}`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data?.success) {
+        toast({
+          title: "Sucesso",
+          description: `Link encurtado: ${data.shortUrl}`,
+        });
+      } else {
+        toast({
+          title: "Erro",
+          description: data?.error || "Erro desconhecido na API",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao chamar função de teste",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (!isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -441,6 +482,14 @@ const AdminMaterials = () => {
             >
               <Settings className="h-4 w-4" />
               Testar API Short.io
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={testShortIoApiNoDomain}
+              className="flex items-center gap-2"
+            >
+              <Settings className="h-4 w-4" />
+              Testar sem Domínio
             </Button>
             <Dialog open={createCampaignDialogOpen} onOpenChange={setCreateCampaignDialogOpen}>
               <DialogTrigger asChild>

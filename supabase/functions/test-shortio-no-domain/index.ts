@@ -16,8 +16,9 @@ serve(async (req) => {
     
     const shortIoApiKey = Deno.env.get('SHORT_IO_API_KEY');
     
-    console.log('Testing Short.io API...');
+    console.log('Testing Short.io API without domain...');
     console.log('API Key present:', !!shortIoApiKey);
+    console.log('API Key value:', shortIoApiKey?.substring(0, 10) + '...');
     console.log('URL to shorten:', url);
 
     if (!shortIoApiKey) {
@@ -30,6 +31,21 @@ serve(async (req) => {
       );
     }
 
+    // First, let's try to get domains list to see what's available
+    const domainsResponse = await fetch('https://api.short.io/domains', {
+      method: 'GET',
+      headers: {
+        'Authorization': shortIoApiKey,
+        'accept': 'application/json',
+      },
+    });
+
+    console.log('Domains response status:', domainsResponse.status);
+    
+    const domainsText = await domainsResponse.text();
+    console.log('Domains response:', domainsText);
+
+    // Now try to create a link without specifying domain
     const response = await fetch('https://api.short.io/links', {
       method: 'POST',
       headers: {
@@ -39,8 +55,8 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         allowDuplicates: false,
-        originalURL: url,
-        domain: 'zapmeter.app'
+        originalURL: url
+        // No domain specified - should use default
       })
     });
 
@@ -54,7 +70,8 @@ serve(async (req) => {
         JSON.stringify({ 
           error: 'Short.io API error',
           status: response.status,
-          response: responseText
+          response: responseText,
+          domainsResponse: domainsText
         }),
         {
           status: 400,
@@ -69,7 +86,8 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         shortUrl: result.shortURL,
-        fullResponse: result
+        fullResponse: result,
+        availableDomains: domainsText
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

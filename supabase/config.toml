@@ -64,3 +64,6 @@ verify_jwt = false
 
 [functions.test-shortio]
 verify_jwt = false
+
+[functions.test-shortio-no-domain]
+verify_jwt = false
