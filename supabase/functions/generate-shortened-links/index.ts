@@ -16,39 +16,39 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 );
 
-// Generate alphanumeric code
-function generateShortCode(length: number = 8): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let result = '';
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
+// Function to create a shortened URL using Short.io API
+async function createShortUrl(originalUrl: string): Promise<string> {
+  const shortIoApiKey = Deno.env.get('SHORT_IO_API_KEY');
+  
+  if (!shortIoApiKey) {
+    throw new Error('SHORT_IO_API_KEY not configured');
   }
-  return result;
-}
 
-// Check if code is unique
-async function generateUniqueShortCode(domainId: string): Promise<string> {
-  let attempts = 0;
-  const maxAttempts = 10;
-  
-  while (attempts < maxAttempts) {
-    const code = generateShortCode();
-    
-    const { data: existing } = await supabase
-      .from('shortened_links')
-      .select('id')
-      .eq('domain_id', domainId)
-      .eq('short_code', code)
-      .single();
-    
-    if (!existing) {
-      return code;
+  try {
+    const response = await fetch('https://api.short.io/links', {
+      method: 'POST',
+      headers: {
+        'Authorization': shortIoApiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        originalURL: originalUrl,
+        domain: 'zapmeter.app'
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Short.io API error:', errorText);
+      throw new Error(`Short.io API error: ${response.status} ${errorText}`);
     }
-    
-    attempts++;
+
+    const result = await response.json();
+    return result.shortURL;
+  } catch (error) {
+    console.error('Error creating short URL:', error);
+    throw error;
   }
-  
-  throw new Error('Unable to generate unique short code');
 }
 
 serve(async (req) => {
@@ -202,8 +202,11 @@ serve(async (req) => {
           continue;
         }
 
-        const shortCode = await generateUniqueShortCode(activeDomain.id);
-        const shortenedUrl = `https://${activeDomain.domain}/${shortCode}`;
+        // Create shortened URL using Short.io API
+        const shortenedUrl = await createShortUrl(post_url);
+        
+        // Extract short code from the shortened URL
+        const shortCode = shortenedUrl.split('/').pop() || '';
 
         // Create shortened link
         const { data: newLink, error: linkError } = await supabase
