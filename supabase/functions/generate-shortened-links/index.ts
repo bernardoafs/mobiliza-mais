@@ -24,31 +24,85 @@ async function createShortUrl(originalUrl: string): Promise<string> {
     throw new Error('SHORT_IO_API_KEY not configured');
   }
 
-  try {
-    const response = await fetch('https://api.short.io/links', {
-      method: 'POST',
+  console.log('Creating short URL for:', originalUrl);
+  console.log('API Key present:', !!shortIoApiKey);
+
+  // Try multiple authentication methods and domain configurations
+  const authMethods = [
+    {
+      name: 'Bearer token with default domain',
+      headers: {
+        'Authorization': `Bearer ${shortIoApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: {
+        originalURL: originalUrl,
+        allowDuplicates: false
+      }
+    },
+    {
+      name: 'Direct API key with default domain',
       headers: {
         'Authorization': shortIoApiKey,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
+      body: {
         originalURL: originalUrl,
-        domain: 'zapmeter.app'
-      })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Short.io API error:', errorText);
-      throw new Error(`Short.io API error: ${response.status} ${errorText}`);
+        allowDuplicates: false
+      }
+    },
+    {
+      name: 'Bearer token with custom domain',
+      headers: {
+        'Authorization': `Bearer ${shortIoApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: {
+        originalURL: originalUrl,
+        domain: 'zapmeter.app',
+        allowDuplicates: false
+      }
+    },
+    {
+      name: 'Direct API key with custom domain',
+      headers: {
+        'Authorization': shortIoApiKey,
+        'Content-Type': 'application/json',
+      },
+      body: {
+        originalURL: originalUrl,
+        domain: 'zapmeter.app',
+        allowDuplicates: false
+      }
     }
+  ];
 
-    const result = await response.json();
-    return result.shortURL;
-  } catch (error) {
-    console.error('Error creating short URL:', error);
-    throw error;
+  for (const method of authMethods) {
+    try {
+      console.log(`Trying ${method.name}...`);
+      
+      const response = await fetch('https://api.short.io/links', {
+        method: 'POST',
+        headers: method.headers,
+        body: JSON.stringify(method.body)
+      });
+
+      console.log(`${method.name} response status:`, response.status);
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log(`Successfully created short URL with ${method.name}:`, result.shortURL);
+        return result.shortURL;
+      } else {
+        const errorText = await response.text();
+        console.log(`${method.name} failed:`, response.status, errorText);
+      }
+    } catch (error) {
+      console.log(`${method.name} error:`, error.message);
+    }
   }
+
+  throw new Error('All Short.io authentication methods failed. Please check your API key and domain configuration.');
 }
 
 serve(async (req) => {
