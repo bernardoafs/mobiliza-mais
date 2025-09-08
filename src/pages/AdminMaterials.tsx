@@ -390,43 +390,62 @@ const AdminMaterials = () => {
     }
   };
 
-  // Test Short.io API without domain
-  const testShortIoApiNoDomain = async () => {
+  // Regenerate all shortened links
+  const regenerateAllLinks = async () => {
+    if (!confirm('Tem certeza que deseja regenerar todos os links encurtados? Esta operação pode demorar alguns minutos.')) return;
+
     try {
-      const testUrl = 'https://www.instagram.com/reel/test123/';
-      
-      const { data, error } = await supabase.functions.invoke('test-shortio-no-domain', {
-        body: { url: testUrl }
+      toast({
+        title: 'Processando',
+        description: 'Regenerando todos os links encurtados...',
       });
 
-      if (error) {
-        console.error('Error testing Short.io API:', error);
-        toast({
-          title: "Erro",
-          description: `Erro ao testar API: ${error.message}`,
-          variant: "destructive",
-        });
-        return;
+      // Get all campaign posts
+      const { data: allPosts, error: postsError } = await supabase
+        .from('campaign_posts')
+        .select('id, post_url');
+
+      if (postsError) throw postsError;
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      // Process each post
+      for (const post of allPosts || []) {
+        try {
+          const { data, error } = await supabase.functions.invoke('generate-shortened-links', {
+            body: {
+              campaign_post_id: post.id,
+              post_url: post.post_url,
+            },
+          });
+
+          if (error) {
+            console.error(`Error processing post ${post.id}:`, error);
+            errorCount++;
+          } else {
+            console.log(`Successfully processed post ${post.id}:`, data);
+            successCount++;
+          }
+        } catch (error) {
+          console.error(`Error processing post ${post.id}:`, error);
+          errorCount++;
+        }
       }
 
-      if (data?.success) {
-        toast({
-          title: "Sucesso",
-          description: `Link encurtado: ${data.shortUrl}`,
-        });
-      } else {
-        toast({
-          title: "Erro",
-          description: data?.error || "Erro desconhecido na API",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Error:', error);
       toast({
-        title: "Erro",
-        description: "Erro ao chamar função de teste",
-        variant: "destructive",
+        title: 'Concluído',
+        description: `${successCount} posts processados com sucesso, ${errorCount} erros. Atualizando dados...`,
+      });
+
+      // Refresh data
+      fetchCampaignsWithData();
+    } catch (error) {
+      console.error('Error regenerating links:', error);
+      toast({
+        title: 'Erro',
+        description: 'Erro ao regenerar links encurtados.',
+        variant: 'destructive',
       });
     }
   };
@@ -484,12 +503,12 @@ const AdminMaterials = () => {
               Testar API Short.io
             </Button>
             <Button 
-              variant="outline" 
-              onClick={testShortIoApiNoDomain}
+              variant="default" 
+              onClick={regenerateAllLinks}
               className="flex items-center gap-2"
             >
-              <Settings className="h-4 w-4" />
-              Testar sem Domínio
+              <Upload className="h-4 w-4" />
+              Regenerar Todos Links
             </Button>
             <Dialog open={createCampaignDialogOpen} onOpenChange={setCreateCampaignDialogOpen}>
               <DialogTrigger asChild>

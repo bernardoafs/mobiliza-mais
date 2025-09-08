@@ -16,107 +16,78 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 );
 
-// Function to create a shortened URL using Short.io API
-async function createShortUrl(originalUrl: string): Promise<string> {
+// Função para criar URL encurtada no Short.io
+async function createShortUrl(originalUrl: string, userId: string): Promise<string> {
   const shortIoApiKey = Deno.env.get('SHORT_IO_API_KEY');
   
   if (!shortIoApiKey) {
-    throw new Error('SHORT_IO_API_KEY not configured');
+    console.error('SHORT_IO_API_KEY não configurada');
+    throw new Error('SHORT_IO_API_KEY não configurada');
   }
 
-  console.log('Creating short URL for:', originalUrl);
-  console.log('API Key present:', !!shortIoApiKey);
-
-  // Try multiple authentication methods and domain configurations
-  const authMethods = [
-    {
-      name: 'Bearer token with default domain',
-      headers: {
-        'Authorization': `Bearer ${shortIoApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: {
-        originalURL: originalUrl,
-        allowDuplicates: false
-      }
-    },
-    {
-      name: 'Direct API key with default domain',
+  console.log(`Criando URL encurtada para usuário ${userId}:`, originalUrl);
+  
+  // Criar URL única adicionando parâmetro do usuário
+  const trackingUrl = `${originalUrl}${originalUrl.includes('?') ? '&' : '?'}utm_source=zapmeter&utm_user=${userId}`;
+  
+  try {
+    // Tentar primeiro sem domínio personalizado (mais provável de funcionar)
+    console.log('Tentando criar link sem domínio personalizado...');
+    const response = await fetch('https://api.short.io/links', {
+      method: 'POST',
       headers: {
         'Authorization': shortIoApiKey,
         'Content-Type': 'application/json',
       },
-      body: {
-        originalURL: originalUrl,
-        allowDuplicates: false
-      }
-    },
-    {
-      name: 'Bearer token with custom domain',
-      headers: {
-        'Authorization': `Bearer ${shortIoApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: {
-        originalURL: originalUrl,
-        domain: 'zapmeter.app',
-        allowDuplicates: false
-      }
-    },
-    {
-      name: 'Direct API key with custom domain',
-      headers: {
-        'Authorization': shortIoApiKey,
-        'Content-Type': 'application/json',
-      },
-      body: {
-        originalURL: originalUrl,
-        domain: 'zapmeter.app',
-        allowDuplicates: false
-      }
-    }
-  ];
+      body: JSON.stringify({
+        originalURL: trackingUrl,
+        allowDuplicates: true // Permitir duplicatas para links únicos por usuário
+      })
+    });
 
-  for (const method of authMethods) {
-    try {
-      console.log(`Trying ${method.name}...`);
-      
-      const response = await fetch('https://api.short.io/links', {
-        method: 'POST',
-        headers: method.headers,
-        body: JSON.stringify(method.body)
-      });
-
-      console.log(`${method.name} response status:`, response.status);
-      
-      if (response.ok) {
-        const result = await response.json();
-        console.log(`Successfully created short URL with ${method.name}:`, result.shortURL);
-        return result.shortURL;
-      } else {
-        const errorText = await response.text();
-        console.log(`${method.name} failed:`, response.status, errorText);
-      }
-    } catch (error) {
-      console.log(`${method.name} error:`, error.message);
+    console.log('Status da resposta Short.io:', response.status);
+    
+    if (response.ok) {
+      const result = await response.json();
+      console.log('Link criado com sucesso:', result.shortURL);
+      return result.shortURL;
+    } else {
+      const errorText = await response.text();
+      console.error('Erro na API Short.io:', response.status, errorText);
+      throw new Error(`Erro na API Short.io: ${response.status} - ${errorText}`);
     }
+  } catch (error) {
+    console.error('Erro ao criar URL encurtada:', error);
+    throw new Error(`Falha ao criar link encurtado: ${error.message}`);
   }
-
-  throw new Error('All Short.io authentication methods failed. Please check your API key and domain configuration.');
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
+  // Lidar com requisições CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    console.log('=== INICIANDO GERAÇÃO DE LINKS ENCURTADOS ===');
+    
     const { campaign_post_id, post_url }: GenerateLinksRequest = await req.json();
     
-    console.log('Generating shortened links for post:', campaign_post_id);
+    if (!campaign_post_id || !post_url) {
+      console.error('Parâmetros obrigatórios não fornecidos');
+      return new Response(
+        JSON.stringify({ error: 'campaign_post_id e post_url são obrigatórios' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+    
+    console.log('Processando post:', campaign_post_id, 'com URL:', post_url);
 
-    // Get active domain
+    // 1. Verificar se existe domínio ativo
+    console.log('1. Verificando domínio ativo...');
     const { data: activeDomain, error: domainError } = await supabase
       .from('admin_domains')
       .select('*')
@@ -124,17 +95,20 @@ serve(async (req) => {
       .single();
 
     if (domainError || !activeDomain) {
-      console.error('No active domain found:', domainError);
+      console.error('Nenhum domínio ativo encontrado:', domainError);
       return new Response(
-        JSON.stringify({ error: 'No active domain configured' }),
+        JSON.stringify({ error: 'Nenhum domínio ativo configurado' }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
     }
+    
+    console.log('Domínio ativo encontrado:', activeDomain.domain);
 
-    // Get campaign_id first
+    // 2. Buscar dados da campanha
+    console.log('2. Buscando dados da campanha...');
     const { data: postData, error: postError } = await supabase
       .from('campaign_posts')
       .select('campaign_id')
@@ -142,26 +116,29 @@ serve(async (req) => {
       .single();
 
     if (postError || !postData) {
-      console.error('Error fetching post:', postError);
+      console.error('Erro ao buscar post:', postError);
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch post data' }),
+        JSON.stringify({ error: 'Post não encontrado' }),
         {
-          status: 500,
+          status: 404,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
     }
 
-    // Get campaign interests
+    console.log('Campanha encontrada:', postData.campaign_id);
+
+    // 3. Buscar interesses da campanha
+    console.log('3. Buscando interesses da campanha...');
     const { data: campaignInterests, error: interestsError } = await supabase
       .from('campaign_interests')
       .select('interest_id')
       .eq('campaign_id', postData.campaign_id);
 
     if (interestsError) {
-      console.error('Error fetching campaign interests:', interestsError);
+      console.error('Erro ao buscar interesses da campanha:', interestsError);
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch campaign interests' }),
+        JSON.stringify({ error: 'Erro ao buscar interesses da campanha' }),
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -170,14 +147,15 @@ serve(async (req) => {
     }
 
     const interestIds = campaignInterests?.map(ci => ci.interest_id) || [];
+    console.log('Interesses encontrados:', interestIds.length);
 
     if (interestIds.length === 0) {
-      console.log('No interests associated with this campaign');
+      console.log('Nenhum interesse associado à campanha');
       return new Response(
         JSON.stringify({ 
           success: true,
           links_created: 0,
-          message: 'No users to notify - campaign has no associated interests'
+          message: 'Nenhum interesse associado à campanha'
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -185,16 +163,17 @@ serve(async (req) => {
       );
     }
 
-    // Get users who have interests matching the campaign
+    // 4. Buscar usuários com interesses correspondentes
+    console.log('4. Buscando usuários com interesses correspondentes...');
     const { data: userInterests, error: userInterestsError } = await supabase
       .from('user_interests')
       .select('user_id')
       .in('interest_id', interestIds);
 
     if (userInterestsError) {
-      console.error('Error fetching user interests:', userInterestsError);
+      console.error('Erro ao buscar interesses dos usuários:', userInterestsError);
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch user interests' }),
+        JSON.stringify({ error: 'Erro ao buscar usuários interessados' }),
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -202,15 +181,17 @@ serve(async (req) => {
       );
     }
 
-    const userIds = [...new Set(userInterests?.map(ui => ui.user_id) || [])];
+    // Remover usuários duplicados
+    const uniqueUserIds = [...new Set(userInterests?.map(ui => ui.user_id) || [])];
+    console.log('Usuários únicos encontrados:', uniqueUserIds.length);
 
-    if (userIds.length === 0) {
-      console.log('No users with matching interests');
+    if (uniqueUserIds.length === 0) {
+      console.log('Nenhum usuário com interesses correspondentes');
       return new Response(
         JSON.stringify({ 
           success: true,
           links_created: 0,
-          message: 'No users have interests matching this campaign'
+          message: 'Nenhum usuário com interesses correspondentes'
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -218,16 +199,17 @@ serve(async (req) => {
       );
     }
 
-    // Get profiles for users with matching interests
-    const { data: users, error: usersError } = await supabase
+    // 5. Buscar perfis dos usuários
+    console.log('5. Buscando perfis dos usuários...');
+    const { data: userProfiles, error: profilesError } = await supabase
       .from('profiles')
-      .select('user_id, whatsapp_phone')
-      .in('user_id', userIds);
+      .select('user_id, whatsapp_phone, first_name, last_name')
+      .in('user_id', uniqueUserIds);
 
-    if (usersError) {
-      console.error('Error fetching users:', usersError);
+    if (profilesError) {
+      console.error('Erro ao buscar perfis dos usuários:', profilesError);
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch users' }),
+        JSON.stringify({ error: 'Erro ao buscar perfis dos usuários' }),
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -235,38 +217,44 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Creating shortened links for ${users?.length || 0} users`);
+    console.log('Perfis encontrados:', userProfiles?.length || 0);
 
+    // 6. Gerar links encurtados para cada usuário
+    console.log('6. Gerando links encurtados...');
     const createdLinks = [];
+    let successCount = 0;
+    let errorCount = 0;
 
-    // Generate shortened link for each user
-    for (const user of users || []) {
+    for (const profile of userProfiles || []) {
       try {
-        // Check if link already exists for this user and post
+        console.log(`Processando usuário: ${profile.user_id}`);
+
+        // Verificar se já existe link para este usuário e post
         const { data: existingLink } = await supabase
           .from('shortened_links')
           .select('*')
-          .eq('user_id', user.user_id)
+          .eq('user_id', profile.user_id)
           .eq('campaign_post_id', campaign_post_id)
-          .single();
+          .maybeSingle();
 
         if (existingLink) {
-          console.log(`Link already exists for user ${user.user_id}`);
+          console.log(`Link já existe para usuário ${profile.user_id}`);
           createdLinks.push(existingLink);
+          successCount++;
           continue;
         }
 
-        // Create shortened URL using Short.io API
-        const shortenedUrl = await createShortUrl(post_url);
+        // Criar URL encurtada no Short.io
+        const shortenedUrl = await createShortUrl(post_url, profile.user_id);
         
-        // Extract short code from the shortened URL
+        // Extrair código curto da URL
         const shortCode = shortenedUrl.split('/').pop() || '';
 
-        // Create shortened link
+        // Salvar no banco de dados
         const { data: newLink, error: linkError } = await supabase
           .from('shortened_links')
           .insert({
-            user_id: user.user_id,
+            user_id: profile.user_id,
             campaign_post_id,
             domain_id: activeDomain.id,
             short_code: shortCode,
@@ -277,20 +265,27 @@ serve(async (req) => {
           .single();
 
         if (linkError) {
-          console.error('Error creating link for user:', user.user_id, linkError);
+          console.error(`Erro ao salvar link para usuário ${profile.user_id}:`, linkError);
+          errorCount++;
           continue;
         }
 
         createdLinks.push(newLink);
+        successCount++;
+        console.log(`Link criado com sucesso para usuário ${profile.user_id}:`, shortenedUrl);
 
-        // Send WhatsApp message via botconversa API
+        // Enviar mensagem WhatsApp (se configurado)
         const botconversaApiKey = Deno.env.get('BOTCONVERSA_API_KEY');
         
-        if (botconversaApiKey && user.whatsapp_phone) {
+        if (botconversaApiKey && profile.whatsapp_phone) {
           try {
+            console.log(`Enviando WhatsApp para ${profile.whatsapp_phone}`);
+            
             const message = `🚀 *Novo material disponível!*
 
-📋 Acesse o link personalizado:
+📋 Olá ${profile.first_name}! Temos novo conteúdo para você:
+
+🔗 Seu link personalizado:
 ${shortenedUrl}
 
 ℹ️ *Instruções:*
@@ -300,42 +295,45 @@ ${shortenedUrl}
 
 📊 Seus cliques serão contabilizados para métricas`;
 
-            const botconversaResponse = await fetch('https://api.botconversa.com.br/api/v1/webhook-send-message', {
+            const whatsappResponse = await fetch('https://api.botconversa.com.br/api/v1/webhook-send-message', {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${botconversaApiKey}`,
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                phone: user.whatsapp_phone,
+                phone: profile.whatsapp_phone,
                 message: message,
               }),
             });
 
-            if (botconversaResponse.ok) {
-              console.log(`Message sent successfully to ${user.whatsapp_phone}`);
+            if (whatsappResponse.ok) {
+              console.log(`Mensagem WhatsApp enviada com sucesso para ${profile.whatsapp_phone}`);
             } else {
-              const errorData = await botconversaResponse.text();
-              console.error(`Failed to send message to ${user.whatsapp_phone}:`, errorData);
+              const errorData = await whatsappResponse.text();
+              console.error(`Falha ao enviar WhatsApp para ${profile.whatsapp_phone}:`, errorData);
             }
-          } catch (error) {
-            console.error(`Error sending message to ${user.whatsapp_phone}:`, error);
+          } catch (whatsappError) {
+            console.error(`Erro ao enviar WhatsApp para ${profile.whatsapp_phone}:`, whatsappError);
           }
         } else {
-          console.log(`Skipping message for user ${user.user_id} - missing API key or phone`);
+          console.log(`Pulando WhatsApp para usuário ${profile.user_id} - API key ou telefone ausentes`);
         }
         
       } catch (error) {
-        console.error('Error processing user:', user.user_id, error);
+        console.error(`Erro ao processar usuário ${profile.user_id}:`, error);
+        errorCount++;
       }
     }
 
-    console.log(`Successfully created ${createdLinks.length} shortened links`);
+    console.log(`=== RESULTADO: ${successCount} links criados, ${errorCount} erros ===`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        links_created: createdLinks.length,
+        links_created: successCount,
+        errors: errorCount,
+        total_users: userProfiles?.length || 0,
         domain: activeDomain.domain,
         links: createdLinks,
       }),
@@ -343,10 +341,14 @@ ${shortenedUrl}
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
+    
   } catch (error) {
-    console.error('Error in generate-shortened-links function:', error);
+    console.error('=== ERRO GERAL NA FUNÇÃO ===:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: 'Erro interno do servidor',
+        details: error.message 
+      }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
