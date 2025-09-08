@@ -27,17 +27,22 @@ async function testShortIoApiKey(): Promise<boolean> {
 
   try {
     console.log('Testando API Key do Short.io...');
-    const response = await fetch('https://api.short.io/domains', {
-      method: 'GET',
+    // Testar criando um link temporário para validar a API key
+    const response = await fetch('https://api.short.io/api/links', {
+      method: 'POST',
       headers: {
         'Authorization': shortIoApiKey,
         'Content-Type': 'application/json',
       },
+      body: JSON.stringify({
+        originalURL: 'https://google.com',
+        allowDuplicates: true
+      })
     });
 
     if (response.ok) {
-      const domains = await response.json();
-      console.log('API Key válida. Domínios disponíveis:', domains.length);
+      const result = await response.json();
+      console.log('API Key válida. Link de teste criado:', result.shortURL);
       return true;
     } else {
       const errorText = await response.text();
@@ -68,7 +73,7 @@ async function createShortUrl(originalUrl: string, userId: string): Promise<stri
     console.log('Criando link no Short.io...');
     
     // Primeiro tentar sem domínio customizado
-    let response = await fetch('https://api.short.io/links', {
+    let response = await fetch('https://api.short.io/api/links', {
       method: 'POST',
       headers: {
         'Authorization': shortIoApiKey,
@@ -90,7 +95,7 @@ async function createShortUrl(originalUrl: string, userId: string): Promise<stri
 
     // Se não funcionou sem domínio, tentar com domínio específico
     console.log('Tentando com domínio zapmeter.app...');
-    response = await fetch('https://api.short.io/links', {
+    response = await fetch('https://api.short.io/api/links', {
       method: 'POST',
       headers: {
         'Authorization': shortIoApiKey,
