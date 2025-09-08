@@ -16,6 +16,40 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 );
 
+// Função para testar se a API Key do Short.io está funcionando
+async function testShortIoApiKey(): Promise<boolean> {
+  const shortIoApiKey = Deno.env.get('SHORT_IO_API_KEY');
+  
+  if (!shortIoApiKey) {
+    console.error('SHORT_IO_API_KEY não configurada');
+    return false;
+  }
+
+  try {
+    console.log('Testando API Key do Short.io...');
+    const response = await fetch('https://api.short.io/domains', {
+      method: 'GET',
+      headers: {
+        'Authorization': shortIoApiKey,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (response.ok) {
+      const domains = await response.json();
+      console.log('API Key válida. Domínios disponíveis:', domains.length);
+      return true;
+    } else {
+      const errorText = await response.text();
+      console.error('API Key inválida:', response.status, errorText);
+      return false;
+    }
+  } catch (error) {
+    console.error('Erro ao testar API Key:', error);
+    return false;
+  }
+}
+
 // Função para criar URL encurtada no Short.io
 async function createShortUrl(originalUrl: string, userId: string): Promise<string> {
   const shortIoApiKey = Deno.env.get('SHORT_IO_API_KEY');
@@ -31,9 +65,10 @@ async function createShortUrl(originalUrl: string, userId: string): Promise<stri
   const trackingUrl = `${originalUrl}${originalUrl.includes('?') ? '&' : '?'}utm_source=zapmeter&utm_user=${userId}`;
   
   try {
-    // Tentar primeiro sem domínio personalizado (mais provável de funcionar)
-    console.log('Tentando criar link sem domínio personalizado...');
-    const response = await fetch('https://api.short.io/links', {
+    console.log('Criando link no Short.io...');
+    
+    // Primeiro tentar sem domínio customizado
+    let response = await fetch('https://api.short.io/links', {
       method: 'POST',
       headers: {
         'Authorization': shortIoApiKey,
@@ -41,15 +76,38 @@ async function createShortUrl(originalUrl: string, userId: string): Promise<stri
       },
       body: JSON.stringify({
         originalURL: trackingUrl,
-        allowDuplicates: true // Permitir duplicatas para links únicos por usuário
+        allowDuplicates: true
       })
     });
 
-    console.log('Status da resposta Short.io:', response.status);
+    console.log('Status da resposta Short.io (sem domínio):', response.status);
     
     if (response.ok) {
       const result = await response.json();
       console.log('Link criado com sucesso:', result.shortURL);
+      return result.shortURL;
+    }
+
+    // Se não funcionou sem domínio, tentar com domínio específico
+    console.log('Tentando com domínio zapmeter.app...');
+    response = await fetch('https://api.short.io/links', {
+      method: 'POST',
+      headers: {
+        'Authorization': shortIoApiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        originalURL: trackingUrl,
+        allowDuplicates: true,
+        domain: 'zapmeter.app'
+      })
+    });
+
+    console.log('Status da resposta Short.io (com domínio):', response.status);
+    
+    if (response.ok) {
+      const result = await response.json();
+      console.log('Link criado com sucesso com domínio:', result.shortURL);
       return result.shortURL;
     } else {
       const errorText = await response.text();
@@ -70,6 +128,21 @@ serve(async (req) => {
 
   try {
     console.log('=== INICIANDO GERAÇÃO DE LINKS ENCURTADOS ===');
+    
+    // Primeiro testar se a API Key do Short.io está funcionando
+    const isApiKeyValid = await testShortIoApiKey();
+    if (!isApiKeyValid) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'API Key do Short.io inválida ou não configurada',
+          details: 'Verifique a configuração da chave SHORT_IO_API_KEY'
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
     
     const { campaign_post_id, post_url }: GenerateLinksRequest = await req.json();
     
